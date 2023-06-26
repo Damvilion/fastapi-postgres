@@ -1,4 +1,4 @@
-from fastapi import FastAPI, status, HTTPException
+from fastapi import FastAPI, status, HTTPException, Response
 from fastapi.params import Body
 from pydantic import BaseModel
 from typing import Optional
@@ -60,10 +60,27 @@ def get_post_by_id(id: int):
     return {"data": new_post}
 
 
-@app.delete("/posts/{id}")
+@app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id: int):
     cursor.execute(
         """DELETE FROM posts WHERE id = %s RETURNING * """, (str(id),))
     deleted_post = cursor.fetchone()
     conn.commit()
-    return {"data": deleted_post}
+    if deleted_post == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"post with id: {id} does not exist")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@app.put("/posts/{id}")
+def update_post(id: int, post: Post):
+    cursor.execute(
+        """UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING * """, (post.title, post.content, post.published, id))
+    updated_post = cursor.fetchone()
+    conn.commit()
+
+    if updated_post == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"post with id: {id} does not exist")
+
+    return {"data": updated_post}
